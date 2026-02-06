@@ -113,8 +113,21 @@ if (!fs.existsSync(configFilePath)) {
     }
 }
 
-// Start MeshCentral
+// Start MeshCentral as the main process (so require.main === module is true inside meshcentral.js)
+// We use spawn instead of require() because meshcentral.js needs to be the main module
+// to trigger its built-in parent-child process management for crash recovery.
 console.log('Starting MeshCentral on port ' + port + '...');
-process.argv.push('--datapath', datapath);
-process.argv.push('--port', String(port));
-require('./meshcentral.js');
+const { spawn } = require('child_process');
+const child = spawn(process.execPath, [
+    path.join(__dirname, 'meshcentral.js'),
+    '--datapath', datapath,
+    '--port', String(port)
+], {
+    stdio: 'inherit',
+    cwd: __dirname
+});
+
+// Forward signals so Render's graceful shutdown works
+process.on('SIGTERM', () => { child.kill('SIGINT'); }); // MeshCentral listens for SIGINT
+process.on('SIGINT', () => { child.kill('SIGINT'); });
+child.on('exit', (code) => { process.exit(code || 0); });
