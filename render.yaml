@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: meshcentral
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: starter
+    healthCheckPath: /health.ashx
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOSTNAME
+        sync: false
+        # Set this to your Render service URL, e.g. meshcentral-xxxx.onrender.com
+      - key: SESSION_KEY
+        generateValue: true
+      - key: ALLOW_NEW_ACCOUNTS
+        value: "true"
+      - key: WEBRTC
+        value: "false"
+    disk:
+      name: meshcentral-data
+      mountPath: /opt/meshcentral/meshcentral-data
+      sizeGB: 1

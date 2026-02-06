@@ -1,0 +1,55 @@
+###############################################
+# Dockerfile optimized for Render.com deployment
+###############################################
+
+### STAGE 1: Build
+FROM node:22-alpine AS builder
+
+RUN mkdir -p /opt/meshcentral/meshcentral
+WORKDIR /opt/meshcentral
+COPY ./ /opt/meshcentral/meshcentral/
+
+# Remove unnecessary files
+RUN rm -rf /opt/meshcentral/meshcentral/docker \
+           /opt/meshcentral/meshcentral/node_modules \
+           /opt/meshcentral/meshcentral/docs \
+           /opt/meshcentral/meshcentral/.git
+
+### STAGE 2: Install dependencies
+FROM node:22-alpine AS dep-compiler
+
+RUN apk add --no-cache --update bash gcc g++ make python3
+
+COPY --from=builder /opt/meshcentral/meshcentral /opt/meshcentral/meshcentral
+WORKDIR /opt/meshcentral/meshcentral
+
+RUN npm ci --omit=dev && npm cache clean --force
+
+### STAGE 3: Final image
+FROM node:22-alpine
+
+RUN apk add --no-cache --update bash jq tzdata curl \
+    && rm -rf /var/cache/* /tmp/*
+
+# Copy application
+COPY --from=dep-compiler /opt/meshcentral/meshcentral /opt/meshcentral/meshcentral
+
+WORKDIR /opt/meshcentral
+
+# Create directories for persistent data
+RUN mkdir -p /opt/meshcentral/meshcentral-data \
+             /opt/meshcentral/meshcentral-files \
+             /opt/meshcentral/meshcentral-backups
+
+# Copy the Render entrypoint script
+COPY render-entrypoint.sh /opt/meshcentral/render-entrypoint.sh
+RUN chmod +x /opt/meshcentral/render-entrypoint.sh
+
+# Render.com provides PORT env var (typically 10000)
+# We only expose this single port since Render handles TLS termination
+ENV NODE_ENV=production \
+    PORT=10000
+
+EXPOSE ${PORT}
+
+ENTRYPOINT ["/bin/bash", "/opt/meshcentral/render-entrypoint.sh"]
