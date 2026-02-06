@@ -1,9 +1,10 @@
 services:
   - type: web
     name: meshcentral
-    runtime: docker
-    dockerfilePath: ./Dockerfile.render
-    plan: starter
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node render-start.js
     healthCheckPath: /health.ashx
     envVars:
       - key: NODE_ENV
@@ -17,7 +18,3 @@ services:
         value: "true"
       - key: WEBRTC
         value: "false"
-    disk:
-      name: meshcentral-data
-      mountPath: /opt/meshcentral/meshcentral-data
-      sizeGB: 1
